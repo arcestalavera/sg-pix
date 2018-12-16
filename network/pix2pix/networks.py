@@ -358,8 +358,10 @@ class MultiscaleObjDiscriminator(nn.Module):
             # cropped_input = crop_bbox_batch(input, boxes, obj_to_img, self.crop_size)
             result = [input]
             for i in range(len(model)):
+                print("res: {}".format(result[-1].shape))
                 result.append(model[i](result[-1]))
 
+            print("final: {}".format(result[-1].shape))
             real_scores = real_classifier(result[-1])
             obj_scores = obj_classifier(result[-1])
             return result[1:], real_scores, obj_scores
@@ -372,7 +374,8 @@ class MultiscaleObjDiscriminator(nn.Module):
     def forward(self, input, boxes, obj_to_img):
         num_D = self.num_D
         result = []
-        input_downsampled = crop_bbox_batch(input, boxes, obj_to_img, self.crop_size)
+        obj_crop = self.crop_size
+        input_downsampled = crop_bbox_batch(input, boxes, obj_to_img, obj_crop)
         for i in range(num_D):
             if self.getIntermFeat:
                 model = [getattr(self, 'scale'+str(i)+'_layer'+str(j)) for j in range(self.n_layers+3-i)]
@@ -383,7 +386,8 @@ class MultiscaleObjDiscriminator(nn.Module):
             obj_classifier = getattr(self, 'class_obj'+str(i))
             result.append(self.singleD_forward(model, real_classifier, obj_classifier, input_downsampled, boxes, obj_to_img))
             if i != (num_D-1):
-                input_downsampled = self.downsample(input_downsampled)
+                obj_crop = obj_crop // 2
+                input_downsampled = crop_bbox_batch(self.downsample(input), boxes, obj_to_img, obj_crop)
         return result
 
 # Defines the discriminator with the specified arguments.
