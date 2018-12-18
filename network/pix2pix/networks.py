@@ -347,7 +347,7 @@ class MultiscaleObjDiscriminator(nn.Module):
             
             setattr(self, 'class_real'+str(i), netD.class_real)
             setattr(self, 'class_obj'+str(i), netD.class_obj)
-        
+
         self.downsample = nn.AvgPool2d(3, stride=2, padding=[1, 1], count_include_pad=False)
 
     def singleD_forward(self, model, real_classifier, obj_classifier, input, boxes, obj_to_img):
@@ -358,18 +358,16 @@ class MultiscaleObjDiscriminator(nn.Module):
             # cropped_input = crop_bbox_batch(input, boxes, obj_to_img, self.crop_size)
             result = [input]
             for i in range(len(model)):
-                print("res: {}".format(result[-1].shape))
                 result.append(model[i](result[-1]))
 
-            print("final: {}".format(result[-1].shape))
             real_scores = real_classifier(result[-1])
             obj_scores = obj_classifier(result[-1])
             return result[1:], real_scores, obj_scores
         else:
-            model_out = model(cropped_input)
+            model_out = model(input)
             real_scores = real_classifier(model_out)
             obj_scores = obj_classifier(model_out)
-            return [model_out], real_scores, obj_scores
+            return real_scores, obj_scores
 
     def forward(self, input, boxes, obj_to_img):
         num_D = self.num_D
@@ -381,7 +379,7 @@ class MultiscaleObjDiscriminator(nn.Module):
                 model = [getattr(self, 'scale'+str(i)+'_layer'+str(j)) for j in range(self.n_layers+3-i)]
             else:
                 model = getattr(self, 'layer'+str(i))
-            
+
             real_classifier = getattr(self, 'class_real'+str(i))
             obj_classifier = getattr(self, 'class_obj'+str(i))
             result.append(self.singleD_forward(model, real_classifier, obj_classifier, input_downsampled, boxes, obj_to_img))

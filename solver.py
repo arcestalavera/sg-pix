@@ -79,7 +79,7 @@ class Solver(object):
                                                        n_layers_D=self.n_layers_D_obj,
                                                        norm=self.normalization,
                                                        num_D=self.num_D_obj,
-                                                       getIntermFeat=not self.no_ganFeat_loss)
+                                                       getIntermFeat=not self.no_objFeat_loss)
 
         # IMG Discriminator
         self.img_discriminator = ref_network.define_img_D(input_nc=3,
@@ -87,12 +87,13 @@ class Solver(object):
                                                           n_layers_D=self.n_layers_D_img,
                                                           norm=self.normalization,
                                                           num_D=self.num_D_img,
-                                                          getIntermFeat=not self.no_ganFeat_loss)
+                                                          getIntermFeat=not self.no_imgFeat_loss)
 
         # Loss
-        self.gan_g_loss, self.gan_d_loss = get_gan_losses(
-            self.gan_loss_type)
-        self.gan_g_obj_loss, self.gan_d_obj_loss = get_gan_losses('lsgan')
+        # self.gan_g_loss, self.gan_d_loss = get_gan_losses(
+        #     self.gan_loss_type)
+        # self.gan_g_obj_loss, self.gan_d_obj_loss = get_gan_losses('lsgan')
+        self.gan_g_loss, self.gan_d_loss = get_gan_losses('lsgan')
         self.vgg_loss = VGGLoss()
 
         # Weights
@@ -120,6 +121,13 @@ class Solver(object):
             self.obj_discriminator.parameters(), lr=self.learning_rate)
         self.dis_img_optimizer = torch.optim.Adam(
             self.img_discriminator.parameters(), lr=self.learning_rate)
+
+        # Others
+        self.ac_ind = 1
+        self.obj_ind = 0
+        if not self.no_objFeat_loss:
+            self.ac_ind = 2
+            self.obj_ind = 1
 
         # Print networks
         self.print_network(self.generator, 'Generator')
@@ -266,7 +274,6 @@ class Solver(object):
 
                 # Generator Step
                 total_loss, losses = self.generator_step(step_vars, model_out)
-
                 # Logging
                 loss = {}
 
@@ -326,7 +333,6 @@ class Solver(object):
 
         imgs, objs, boxes, obj_to_img, _, _ = step_vars
         imgs_pred = model_out[0].detach()
-        layout = model_out[4]
 
         # Step for Obj Discriminator
         if self.obj_discriminator is not None:
@@ -336,20 +342,21 @@ class Solver(object):
             scores_real = self.obj_discriminator(
                 imgs, boxes, obj_to_img)
 
-            ac_loss_fake = 0
-            ac_loss_real = 0
-            d_obj_gan_loss = 0
+            ac_loss_fake = torch.zeros(1).to(imgs)
+            ac_loss_real = torch.zeros(1).to(imgs)
+            d_obj_gan_loss = torch.zeros(1).to(imgs)
+
             for i in range(self.num_D_obj):
                 # AC Losses
-                ac_score_fake = scores_fake[i][2]
-                ac_score_real = scores_real[i][2]
+                ac_score_fake = scores_fake[i][self.ac_ind]
+                ac_score_real = scores_real[i][self.ac_ind]
                 ac_loss_fake += F.cross_entropy(ac_score_fake, objs)
                 ac_loss_real += F.cross_entropy(ac_score_real, objs)
 
                 # OBJ GAN Loss
-                obj_score_fake = scores_fake[i][1]
-                obj_score_real = scores_real[i][1]
-                d_obj_gan_loss += self.gan_d_obj_loss(obj_score_real, obj_score_fake)
+                obj_score_fake = scores_fake[i][self.obj_ind]
+                obj_score_real = scores_real[i][self.obj_ind]
+                d_obj_gan_loss += self.gan_d_loss(obj_score_real, obj_score_fake)
 
             d_obj_losses.add_loss(d_obj_gan_loss, 'd_obj_gan_loss')
             d_obj_losses.add_loss(ac_loss_real, 'd_ac_loss_real')
@@ -362,15 +369,18 @@ class Solver(object):
         # Step for Img Discriminator
         if self.img_discriminator is not None:
             d_img_losses = LossManager()
-            imgs_fake = torch.cat([imgs_pred], dim=1)
-            scores_fake = self.img_discriminator(imgs_fake)
+            scores_fake = self.img_discriminator(imgs_pred)
 
-            imgs_real = torch.cat([imgs], dim=1)
-            scores_real = self.img_discriminator(imgs_real)
+            scores_real = self.img_discriminator(imgs)
 
             # GAN Loss
-            d_img_gan_loss = self.gan_d_loss(scores_real, scores_fake)
-            d_img_losses.add_loss(d_img_gan_loss, 'd_img_gan_loss')
+            d_img_loss = torch.zeros(1).to(imgs)
+            for i in range(self.num_D_img):
+                img_fake_score = scores_fake[i]
+                img_real_score = scores_real[i]
+                d_img_loss += self.gan_d_loss(img_real_score[-1], img_fake_score[-1])
+
+            d_img_losses.add_loss(d_img_loss, 'd_img_gan_loss')
 
             self.reset_grad()
             d_img_losses.total_loss.backward()
@@ -422,7 +432,7 @@ class Solver(object):
             # OBJ GAN Loss: Auxiliary Classification
             ac_loss = 0
             for i in range(self.num_D_obj):
-                ac_score = scores_fake[i][2]
+                ac_score = scores_fake[i][self.ac_ind]
                 ac_loss += F.cross_entropy(ac_score, objs)
 
             total_loss = self.add_loss(total_loss, ac_loss, losses, 'g_ac_loss',
@@ -431,21 +441,21 @@ class Solver(object):
             # OBJ GAN Loss: Real vs Fake
             obj_loss = 0
             for i in range(self.num_D_obj):
-                obj_score = scores_fake[i][1]
-                obj_loss += self.gan_g_obj_loss(obj_score)
+                obj_score = scores_fake[i][self.obj_ind]
+                obj_loss += self.gan_g_loss(obj_score)
 
             weight = self.discriminator_loss_weight * self.d_obj_weight
             total_loss = self.add_loss(total_loss, obj_loss, losses,
                                        'g_obj_gan_loss', weight)
 
             # Feat Matching Loss of Intermediate Layers
-            if not self.no_ganFeat_loss:
+            if not self.no_objFeat_loss:
                 scores_real = self.obj_discriminator(imgs, boxes, obj_to_img)
                 feat_loss = 0
                 for i in range(self.num_D_obj):
                     fake_feat = scores_fake[i][0]
                     real_feat = scores_real[i][0]
-                    for j in range(len(fake_feat)):
+                    for j in range(len(fake_feat) - 1):
                         feat_loss += F.l1_loss(fake_feat[j], real_feat[j].detach())
                 weight = self.obj_D_weights * self.obj_feat_weights * self.lambda_feat
                 total_loss = self.add_loss(total_loss, feat_loss, losses,
@@ -453,18 +463,20 @@ class Solver(object):
 
         if self.img_discriminator is not None:
             # IMG GAN Loss: Patches should be realistic
-            imgs_fake = torch.cat([imgs_pred], dim=1)            
-            scores_fake = self.img_discriminator(imgs_fake)
-
-            imgs_real = torch.cat([imgs], dim=1)
-            scores_real = self.img_discriminator(imgs_real)
+            scores_fake = self.img_discriminator(imgs_pred)
+            scores_real = self.img_discriminator(imgs)
 
             weight = self.discriminator_loss_weight * self.d_img_weight
-            total_loss = self.add_loss(total_loss, self.gan_g_loss(scores_fake), losses,
+            img_loss = 0
+            for i in range(self.num_D_img):
+                img_scores = scores_fake[i]
+                img_loss += self.gan_g_loss(img_scores[-1])
+
+            total_loss = self.add_loss(total_loss, img_loss, losses,
                                        'g_img_gan_loss', weight)
 
             # Feat Matching Loss of Intermediate Layers
-            if not self.no_ganFeat_loss:
+            if not self.no_imgFeat_loss:
                 feat_loss = 0
                 for i in range(self.num_D_img):
                     for j in range(len(scores_fake[i]) - 1):

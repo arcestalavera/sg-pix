@@ -135,7 +135,8 @@ def lsgan_g_loss(scores_fake):
     if scores_fake.dim() > 1:
         scores_fake = scores_fake.view(-1)
     y_fake = _make_targets(scores_fake, 1)
-    return F.mse_loss(scores_fake.sigmoid(), y_fake)
+    loss = F.mse_loss(scores_fake.sigmoid(), y_fake)
+    return loss
 
 
 def lsgan_d_loss(scores_real, scores_fake):

@@ -70,7 +70,7 @@ if __name__ == '__main__':
 
     # Variables
     VG_DIR = 'vg'
-    
+
     # Scene Graph Model Generator
     parser.add_argument('--mask_size', default=16, type=int)
     parser.add_argument('--embedding_dim', default=128, type=int)
@@ -118,23 +118,24 @@ if __name__ == '__main__':
     # Discriminators
     parser.add_argument('--ndf', type=int, default=64, help='# of discrim filters in first conv layer')
     # Image Discriminator
-    parser.add_argument('--num_D_img', type=int, default=2, help='number of img discriminators to use')
+    parser.add_argument('--num_D_img', type=int, default=1, help='number of img discriminators to use')
     parser.add_argument('--n_layers_D_img', type=int, default=1, help='only used if which_model_netD==n_layers')
     # Object Discriminator
-    parser.add_argument('--num_D_obj', type=int, default=2, help='number of obj discriminators to use')
+    parser.add_argument('--num_D_obj', type=int, default=1, help='number of obj discriminators to use')
     parser.add_argument('--n_layers_D_obj', type=int, default=1, help='only used if which_model_netD==n_layers')
 
     parser.add_argument('--lambda_feat', type=float, default=10.0, help='weight for feature matching loss')
-    parser.add_argument('--no_ganFeat_loss', action='store_true', help='if specified, do *not* use discriminator feature matching loss')
+   
+
+
+    parser.add_argument('--no_objFeat_loss', type=bool_flag, default=False, help='if specified, do *not* use discriminator feature matching loss')
+    parser.add_argument('--no_imgFeat_loss', type=bool_flag, default=False, help='if specified, do *not* use discriminator feature matching loss')
     parser.add_argument('--no_vgg_loss', action='store_true', help='if specified, do *not* use VGG feature matching loss')
     parser.add_argument('--d_img_weight', default=1.0,
                         type=float)  # multiplied by d_loss_weight
 
     # Dataset options common to both VG and COCO
     parser.add_argument('--image_size', default='64,64', type=int_tuple)
-    parser.add_argument('--num_train_samples', default=None, type=int)
-    parser.add_argument('--num_val_samples', default=1024, type=int)
-    parser.add_argument('--shuffle_val', default=True, type=bool_flag)
     parser.add_argument('--include_relationships',
                         default=True, type=bool_flag)
 
