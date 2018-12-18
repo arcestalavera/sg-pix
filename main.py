@@ -78,7 +78,7 @@ if __name__ == '__main__':
     parser.add_argument('--gconv_hidden_dim', default=512, type=int)
     parser.add_argument('--gconv_num_layers', default=5, type=int)
     parser.add_argument('--mlp_normalization', default='none', type=str)
-    parser.add_argument('--normalization', default='batch')
+    parser.add_argument('--normalization', default='instance')
     parser.add_argument('--activation', default='leakyrelu-0.2')
     parser.add_argument('--layout_noise_dim', default=32, type=int)
     parser.add_argument('--use_boxes_pred_after', default=-1, type=int)
@@ -87,7 +87,7 @@ if __name__ == '__main__':
     parser.add_argument('--netG', type=str, default='global')
     parser.add_argument('--ngf', type=int, default=64)
     parser.add_argument('--n_downsample_global', type=int, default=2)
-    parser.add_argument('--n_blocks_global', type=int, default=2)
+    parser.add_argument('--n_blocks_global', type=int, default=6)
     parser.add_argument('--n_blocks_local', type=int, default=3)
     parser.add_argument('--n_local_enhancers', type=int, default=1)
     parser.add_argument('--niter_fix_global', type=int, default=0)
@@ -103,9 +103,9 @@ if __name__ == '__main__':
     # Generic discriminator options
     parser.add_argument('--discriminator_loss_weight',
                         default=0.01, type=float)
-    parser.add_argument('--gan_loss_type', default='multi_lsgan')
+    parser.add_argument('--gan_loss_type', default='lsgan')
     parser.add_argument('--d_clip', default=None, type=float)
-    parser.add_argument('--d_normalization', default='batch')
+    parser.add_argument('--d_normalization', default='instance')
     parser.add_argument('--d_padding', default='valid')
     parser.add_argument('--d_activation', default='leakyrelu-0.2')
 
@@ -128,8 +128,8 @@ if __name__ == '__main__':
    
 
 
-    parser.add_argument('--no_objFeat_loss', type=bool_flag, default=False, help='if specified, do *not* use discriminator feature matching loss')
-    parser.add_argument('--no_imgFeat_loss', type=bool_flag, default=False, help='if specified, do *not* use discriminator feature matching loss')
+    parser.add_argument('--no_objFeat_loss', type=bool_flag, default=True, help='if specified, do *not* use discriminator feature matching loss')
+    parser.add_argument('--no_imgFeat_loss', type=bool_flag, default=True,   help='if specified, do *not* use discriminator feature matching loss')
     parser.add_argument('--no_vgg_loss', action='store_true', help='if specified, do *not* use VGG feature matching loss')
     parser.add_argument('--d_img_weight', default=1.0,
                         type=float)  # multiplied by d_loss_weight

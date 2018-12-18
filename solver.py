@@ -90,10 +90,7 @@ class Solver(object):
                                                           getIntermFeat=not self.no_imgFeat_loss)
 
         # Loss
-        # self.gan_g_loss, self.gan_d_loss = get_gan_losses(
-        #     self.gan_loss_type)
-        # self.gan_g_obj_loss, self.gan_d_obj_loss = get_gan_losses('lsgan')
-        self.gan_g_loss, self.gan_d_loss = get_gan_losses('lsgan')
+        self.gan_g_loss, self.gan_d_loss = get_gan_losses(self.gan_loss_type)
         self.vgg_loss = VGGLoss()
 
         # Weights
